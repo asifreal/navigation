@@ -42,6 +42,7 @@
 
 #include <global_planner/dijkstra.h>
 #include <global_planner/astar.h>
+#include <global_planner/prm.h>
 #include <global_planner/grid_path.h>
 #include <global_planner/gradient_path.h>
 #include <global_planner/quadratic_calculator.h>
@@ -114,17 +115,19 @@ void GlobalPlanner::initialize(std::string name, costmap_2d::Costmap2D* costmap,
         else
             p_calc_ = new PotentialCalculator(cx, cy);
 
-        bool use_dijkstra;
-        private_nh.param("use_dijkstra", use_dijkstra, true);
-        if (use_dijkstra)
+        int use_dijkstra;
+        private_nh.param("use_dijkstra", use_dijkstra, 0);
+        if (use_dijkstra <= 0 || use_dijkstra >= 3)
         {
             DijkstraExpansion* de = new DijkstraExpansion(p_calc_, cx, cy);
             if(!old_navfn_behavior_)
                 de->setPreciseStart(true);
             planner_ = de;
         }
-        else
+        else if (use_dijkstra == 1)
             planner_ = new AStarExpansion(p_calc_, cx, cy);
+        else if (use_dijkstra == 2)
+            planner_ = new PRMExpansion(p_calc_, cx, cy);
 
         bool use_grid_path;
         private_nh.param("use_grid_path", use_grid_path, false);
@@ -280,6 +283,7 @@ bool GlobalPlanner::makePlan(const geometry_msgs::PoseStamped& start, const geom
     clearRobotCell(start, start_x_i, start_y_i);
 
     int nx = costmap_->getSizeInCellsX(), ny = costmap_->getSizeInCellsY();
+    ROS_WARN("The potential size is %d x %d", nx, ny);
 
     //make sure to resize the underlying array that Navfn uses
     p_calc_->setSize(nx, ny);
